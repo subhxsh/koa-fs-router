@@ -9,7 +9,7 @@
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
-    "isolatedDeclarations": true,
+    // "isolatedDeclarations": true,
     "esModuleInterop": false,
     "rootDir": "./src",
     "outDir": "./dist",
