@@ -1,6 +1,7 @@
 {
   "name": "@subhxsh/koa-fs-router",
   "version": "0.0.1",
+  "description": "Next.js style file-system based routing middleware for Koa",
   "keywords": [
     "koa",
     "router",
