@@ -2,7 +2,7 @@ import type { Middleware } from "koa";
 import { readdirSync } from "node:fs";
 import * as path from "path";
 import { allowedExtensions, ignoredExtensions } from "./config.ts";
-import { RouteTree } from "./route-tree.ts";
+import { createRouteTree } from "./route-tree.ts";
 
 export const fsRouter = (root: string): Middleware => {
   const dirents = readdirSync(root, {
@@ -10,7 +10,7 @@ export const fsRouter = (root: string): Middleware => {
     recursive: true,
   });
 
-  const tree = new RouteTree();
+  const tree = createRouteTree();
 
   for (const dirent of dirents) {
     if (
