@@ -21,35 +21,27 @@ type WildcardNode = {
   children?: never;
 };
 
+type AnyNode = StaticNode | DynamicNode | WildcardNode;
+
 type Children = {
   static?: Record<string, StaticNode>;
   dynamic?: DynamicNode;
   wildcard?: WildcardNode;
 };
 
-type AnyNode = StaticNode | DynamicNode | WildcardNode;
+export const createRouteTree = () => {
+  const rootNode: StaticNode = {};
 
-export class RouteTreeError extends Error {
-  path: string;
-  constructor(message: string, path: string) {
-    super(message);
-    this.name = this.constructor.name;
-    this.path = path;
-  }
-}
+  const fmt = (
+    node: { param: string; optional: boolean },
+    wildcard = false,
+  ) => {
+    const count = node.optional ? 2 : 1;
+    return `${"[".repeat(count)}${wildcard ? `...${node.param}` : node.param}${"]".repeat(count)}`;
+  };
 
-const fmt = (param: string, optional: boolean, wildcard: boolean) => {
-  const count = optional ? 2 : 1;
-  const left = "[".repeat(count);
-  const right = "]".repeat(count);
-  return `${left}${wildcard ? `...${param}` : param}${right}`;
-};
-
-export class RouteTree {
-  #rootNode: StaticNode = {};
-
-  insert(relativePath: string) {
-    let currentNode: AnyNode = this.#rootNode;
+  const insert = (relativePath: string) => {
+    let currentNode: AnyNode = rootNode;
 
     const segments = path
       .join(
@@ -61,9 +53,9 @@ export class RouteTree {
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]!;
       const isLast = i === segments.length - 1;
+      const hasParam = segment.startsWith("[") && segment.endsWith("]");
 
-      const notStaticNode = segment.startsWith("[") && segment.endsWith("]");
-      if (notStaticNode) {
+      if (hasParam) {
         let param = segment.slice(1, -1);
 
         const optional = param.startsWith("[") && param.endsWith("]");
@@ -74,22 +66,19 @@ export class RouteTree {
           param = param.slice(3);
 
           if (!isLast)
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} must be terminating`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' must be the last part of the URL`,
             );
 
           if (!currentNode.children) currentNode.children = {};
           if (currentNode.children.dynamic)
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} conflicts with existing ${fmt(currentNode.children.dynamic.param, currentNode.children.dynamic.optional, false)}`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' conflicts with ${fmt(currentNode.children.dynamic)}`,
             );
 
           if (currentNode.children.wildcard)
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} conflicts with existing ${fmt(currentNode.children.wildcard.param, currentNode.children.wildcard.optional, true)}`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' conflicts with ${fmt(currentNode.children.wildcard, true)}`,
             );
 
           currentNode = currentNode.children.wildcard = {
@@ -100,9 +89,8 @@ export class RouteTree {
         } else {
           if (!currentNode.children) currentNode.children = {};
           if (currentNode.children.wildcard)
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} conflicts with existing ${fmt(currentNode.children.wildcard.param, currentNode.children.wildcard.optional, true)}`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' conflicts with ${fmt(currentNode.children.wildcard, true)}`,
             );
 
           if (
@@ -110,15 +98,13 @@ export class RouteTree {
             (currentNode.children.dynamic.param !== param ||
               currentNode.children.dynamic.optional !== optional)
           )
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} conflicts with existing ${fmt(currentNode.children.dynamic.param, currentNode.children.dynamic.optional, false)} - parameter names and optionality must match`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' has different specificity than ${fmt(currentNode.children.dynamic)}`,
             );
 
           if (isLast && currentNode.children.dynamic?.filePath)
-            throw new RouteTreeError(
-              `${fmt(param, optional, wildcard)} conflicts with existing ${fmt(currentNode.children.dynamic.param, currentNode.children.dynamic.optional, false)}`,
-              relativePath,
+            throw new Error(
+              `${segment} in '${relativePath}' conflicts with ${fmt(currentNode.children.dynamic)}`,
             );
 
           if (!currentNode.children.dynamic)
@@ -130,9 +116,8 @@ export class RouteTree {
       } else {
         if (isLast && segment === "index") {
           if (currentNode.filePath)
-            throw new RouteTreeError(
-              `Route '${segment}' already defined at '${currentNode.filePath}'`,
-              relativePath,
+            throw new Error(
+              `'${segment}' in '${relativePath}' conflicts with '${currentNode.filePath}'`,
             );
           currentNode.filePath = relativePath;
           return;
@@ -142,9 +127,8 @@ export class RouteTree {
         if (!currentNode.children.static) currentNode.children.static = {};
 
         if (isLast && currentNode.children.static[segment]?.filePath)
-          throw new RouteTreeError(
-            `Route '${segment}' already defined at '${currentNode.children.static[segment].filePath}'`,
-            relativePath,
+          throw new Error(
+            `'${segment}' in '${relativePath}' conflicts with '${currentNode.children.static[segment].filePath}'`,
           );
 
         if (!currentNode.children.static[segment])
@@ -155,5 +139,7 @@ export class RouteTree {
         currentNode = currentNode.children.static[segment]!;
       }
     }
-  }
-}
+  };
+
+  return { insert };
+};
