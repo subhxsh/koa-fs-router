@@ -12,7 +12,11 @@
   ],
   "repository": "retr0punk/koa-fs-router",
   "license": "MIT",
-  "author": "Veer Balla",
+  "author": {
+    "name": "retr0punk",
+    "email": "npm@retr0punk.xyz",
+    "url": "https://retr0punk.xyz"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.js",
